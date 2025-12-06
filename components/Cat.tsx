@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { CatData, CatMood, CatBreed } from '../types';
+import { CatData, CatMood, CatBreed, ToyData } from '../types';
 import { generateCatThought, generateCatSpeech } from '../services/geminiService';
 
 interface CatProps {
   data: CatData;
   audioContext: AudioContext | null;
   onInteract?: (id: string) => void;
+  toys?: ToyData[];
 }
 
-const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract }) => {
+const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) => {
   const [visible, setVisible] = useState(false);
   const [thought, setThought] = useState<string>('');
   const [mood, setMood] = useState<CatMood>(CatMood.PLAYFUL);
@@ -22,10 +23,15 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract }) => {
   // Interaction state
   const [isInteracting, setIsInteracting] = useState(false);
   const [hearts, setHearts] = useState<{id: number, x: number, y: number}[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false); // Playing with toy
 
   // Lifecycle state
   const [ageScale, setAgeScale] = useState(1);
   const [isOld, setIsOld] = useState(false);
+
+  // Refs for tracking toys in closure
+  const toysRef = useRef(toys);
+  toysRef.current = toys;
   
   // Random animation timings to make each cat unique
   const isLazy = data.breed === CatBreed.PERSIAN || data.breed === CatBreed.SCOTTISH_FOLD;
@@ -70,30 +76,92 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract }) => {
     let wanderTimeout: ReturnType<typeof setTimeout>;
 
     const startWandering = () => {
+      // Logic: Check for toys first
+      const currentToys = toysRef.current;
+      let targetToy: ToyData | null = null;
+      let minDist = 300; // Detection radius
+
+      // Find nearest toy relative to CURRENT position (base x/y + offset)
+      const currentX = data.x + offset.x;
+      const currentY = data.y + offset.y;
+
+      for (const toy of currentToys) {
+          const dx = toy.x - currentX;
+          const dy = toy.y - currentY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < minDist) {
+              minDist = dist;
+              targetToy = toy;
+          }
+      }
+
+      if (targetToy) {
+          // Found a toy! Move towards it.
+          // Calculate offset needed to get from base (data.x, data.y) to toy
+          const targetOffsetX = targetToy.x - data.x;
+          const targetOffsetY = targetToy.y - data.y;
+
+          // Distance to target
+          const dx = targetToy.x - currentX;
+          const dy = targetToy.y - currentY;
+          const distToTarget = Math.sqrt(dx * dx + dy * dy);
+
+          // Rotate to face toy
+          const angleRad = Math.atan2(dy, dx);
+          const angleDeg = angleRad * (180 / Math.PI) + 90; // +90 because cat faces up by default? 
+          // Actually SVGs usually 0 deg is right. Let's assume standard rotation.
+          // Based on current SVG, "up" (-y) seems to be the head direction if unrotated, 
+          // but rotation in CSS is usually clockwise. 
+          // Let's just do a simple look-at.
+          
+          setRotationOffset(angleDeg - data.rotation); // Adjust absolute rotation relative to base
+
+          if (distToTarget < 60) {
+              // Reached toy -> Play
+              setIsPlaying(true);
+              setOffset({ x: targetOffsetX + (Math.random() * 20 - 10), y: targetOffsetY + (Math.random() * 20 - 10) });
+              setTransitionDuration('0.5s'); // Quick snap to position
+              
+              // Stay playing for a bit
+              wanderTimeout = setTimeout(() => {
+                  setIsPlaying(false);
+                  startWandering();
+              }, 2000 + Math.random() * 1000);
+              return;
+          } else {
+              // Chase toy
+              setIsPlaying(false);
+              setOffset({ x: targetOffsetX, y: targetOffsetY });
+              setTransitionDuration(`${1 + Math.random() * 0.5}s`); // Move fast
+              
+              wanderTimeout = setTimeout(startWandering, 1200);
+              return;
+          }
+      }
+
+      // No Toy -> Random Wander
+      setIsPlaying(false);
+      
       // Switch to slower, smoother movement for wandering
       setTransitionDuration(`${3 + Math.random() * 2}s`); 
 
-      const wander = () => {
-        // Random position drift
-        const angle = Math.random() * Math.PI * 2;
-        const distance = Math.random() * 60; 
-        
-        setOffset({
-          x: Math.cos(angle) * distance,
-          y: Math.sin(angle) * distance
-        });
-
-        // Gentle rotation sway
-        setRotationOffset((Math.random() - 0.5) * 15); 
-
-        // Schedule next move
-        const nextMoveDelay = 4000 + Math.random() * 4000; 
-        wanderTimeout = setTimeout(wander, nextMoveDelay);
-      };
+      // Random position drift relative to Spawn Point
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * 80; 
       
-      wander();
-    };
+      setOffset({
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance
+      });
 
+      // Gentle rotation sway
+      setRotationOffset((Math.random() - 0.5) * 30); 
+
+      // Schedule next move
+      const nextMoveDelay = 4000 + Math.random() * 4000; 
+      wanderTimeout = setTimeout(startWandering, nextMoveDelay);
+    };
+    
     // Start wandering after the pop-in animation completes
     const initialDelay = setTimeout(startWandering, 1000);
 
@@ -308,6 +376,12 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract }) => {
             0% { opacity: 1; transform: translateY(0) scale(0.5); }
             100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
         }
+        @keyframes batPaw {
+            0%, 100% { transform: translate(0,0) rotate(0deg); }
+            25% { transform: translate(5px, -5px) rotate(15deg); }
+            50% { transform: translate(-2px, 0) rotate(-5deg); }
+            75% { transform: translate(5px, -5px) rotate(10deg); }
+        }
       `}</style>
 
       {/* Thought Bubble */}
@@ -354,7 +428,6 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract }) => {
           {renderBodyAndHead()}
           
           {/* Eyes Container */}
-          {/* If mood is sleepy OR cat is very old, show sleepy eyes */}
           {mood !== CatMood.SLEEPY && !isOld ? (
              <g style={{ 
                animation: `blink ${blinkDuration}s infinite`,
@@ -389,6 +462,13 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract }) => {
             <line x1="80" y1="50" x2="65" y2="52" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
             <line x1="80" y1="55" x2="65" y2="55" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
           </g>
+
+          {/* Paws (Play Animation) */}
+          <g style={{ opacity: isPlaying ? 1 : 0, transition: 'opacity 0.2s' }}>
+              <circle cx="35" cy="80" r="8" fill={data.color} style={{ animation: isPlaying ? 'batPaw 0.4s infinite alternate' : 'none' }} />
+              <circle cx="65" cy="80" r="8" fill={data.color} style={{ animation: isPlaying ? 'batPaw 0.4s infinite alternate-reverse' : 'none' }} />
+          </g>
+
         </g>
       </svg>
     </div>

@@ -28,3 +28,14 @@ export enum CatMood {
   PHILOSOPHICAL = 'Philosophical',
   SLEEPY = 'Sleepy'
 }
+
+export type ToyType = 'laser' | 'yarn';
+
+export interface ToyData {
+  id: string;
+  x: number;
+  y: number;
+  type: ToyType;
+  createdAt: number;
+  expiresAt: number;
+}
