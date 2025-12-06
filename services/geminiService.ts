@@ -1,3 +1,4 @@
+
 import { CatMood, CatBreed } from "../types";
 
 // --- Local Thoughts Database ---
@@ -46,6 +47,33 @@ const THOUGHTS_DB: Record<CatBreed, string[]> = {
     "Golden eyes watching you.",
     "Shadows are my friends.",
     "Spooky time."
+  ],
+  [CatBreed.SPHYNX]: [
+    "It's chilly. Do you have a sweater?",
+    "I am naked and unashamed.",
+    "Fur is so last season.",
+    "I feel everything.",
+    "Warmth. I need warmth.",
+    "Look at my wrinkles. Wisdom.",
+    "I am not an alien."
+  ],
+  [CatBreed.RAGDOLL]: [
+    "I go limp now.",
+    "Carry me, peasant.",
+    "Too relaxed to function.",
+    "Flopping is my hobby.",
+    "Softness is power.",
+    "Blue eyes, full hearts, can't lose.",
+    "Is it nap time? Always."
+  ],
+  [CatBreed.BENGAL]: [
+    "I am wildness incarnate.",
+    "Did something move? I caught it.",
+    "Let's climb the curtains!",
+    "I have jungle energy.",
+    "Look at my spots!",
+    "Water? Actually, I don't mind it.",
+    "Chaos is my middle name."
   ]
 };
 
@@ -53,7 +81,6 @@ const GENERIC_THOUGHTS = [
   "Meow.",
   "Prrr...",
   "Thinking about fish.",
-  "Laser pointer?",
   "Zzz...",
   "World domination imminent."
 ];
@@ -112,6 +139,9 @@ export const generateCatSpeech = async (
     if (breed === CatBreed.SIAMESE) basePitch = 550; // Higher, whinier
     if (breed === CatBreed.PERSIAN) basePitch = 300; // Lower, lazy
     if (breed === CatBreed.SCOTTISH_FOLD) basePitch = 450;
+    if (breed === CatBreed.SPHYNX) basePitch = 500; // Higher, slightly odd
+    if (breed === CatBreed.RAGDOLL) basePitch = 350; // Soft, lowish
+    if (breed === CatBreed.BENGAL) basePitch = 480; // Active, vocal
     
     // Mood Modifications
     let type: OscillatorType = 'sawtooth';
@@ -125,15 +155,31 @@ export const generateCatSpeech = async (
     } else if (mood === CatMood.HAPPY) {
         basePitch += 50;
         type = 'triangle';
+    } else if (mood === CatMood.PLAYFUL) {
+        basePitch += 100;
+        type = 'triangle'; 
+        // Playful sounds are often shorter/chirpier, handled by envelope below
     }
+
+    if (breed === CatBreed.RAGDOLL) type = 'sine'; // Always softer
+    if (breed === CatBreed.BENGAL) type = 'sawtooth'; // More texture
 
     osc.type = type;
 
     // Pitch Envelope (The "Meow" contour)
     // Start mid, go high, drop low
     osc.frequency.setValueAtTime(basePitch, t);
-    osc.frequency.exponentialRampToValueAtTime(basePitch * 1.5, t + duration * 0.2); // Attack up
-    osc.frequency.exponentialRampToValueAtTime(basePitch * 0.8, t + duration); // Slide down
+    
+    if (breed === CatBreed.BENGAL) {
+        // Trill-like modulation for Bengal
+        osc.frequency.exponentialRampToValueAtTime(basePitch * 1.2, t + duration * 0.1);
+        osc.frequency.exponentialRampToValueAtTime(basePitch * 0.9, t + duration * 0.2);
+        osc.frequency.exponentialRampToValueAtTime(basePitch * 1.3, t + duration * 0.4);
+        osc.frequency.exponentialRampToValueAtTime(basePitch * 0.8, t + duration);
+    } else {
+        osc.frequency.exponentialRampToValueAtTime(basePitch * 1.5, t + duration * 0.2); // Attack up
+        osc.frequency.exponentialRampToValueAtTime(basePitch * 0.8, t + duration); // Slide down
+    }
 
     // Filter Envelope (Wah effect)
     filter.type = 'lowpass';

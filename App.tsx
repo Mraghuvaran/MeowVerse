@@ -1,6 +1,7 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Cat from './components/Cat';
-import { CatData, CatBreed, ToyData, ToyType } from './types';
+import { CatData, CatBreed } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import { startAmbientLoop } from './services/geminiService';
 
@@ -18,6 +19,12 @@ const getColorForBreed = (breed: CatBreed) => {
             return pick(['#94a3b8', '#cbd5e1', '#64748b', '#a7b3c2']); // Blue/Grey variants
         case CatBreed.TABBY:
             return pick(['#fbbf24', '#f87171', '#a3e635', '#d97706', '#b45309', '#a16207']); // Oranges, Reds, Browns
+        case CatBreed.SPHYNX:
+            return pick(['#fecaca', '#e7e5e4', '#d6d3d1', '#fca5a5']); // Pinks, Warm Greys
+        case CatBreed.RAGDOLL:
+            return pick(['#fff7ed', '#fefce8', '#fafaf9']); // Very light creams/whites
+        case CatBreed.BENGAL:
+            return pick(['#d97706', '#b45309', '#ca8a04', '#d4af37']); // Gold, Amber, Bronze
         default:
             return '#fbbf24';
     }
@@ -25,7 +32,6 @@ const getColorForBreed = (breed: CatBreed) => {
 
 const App: React.FC = () => {
   const [cats, setCats] = useState<CatData[]>([]);
-  const [toys, setToys] = useState<ToyData[]>([]);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -45,7 +51,7 @@ const App: React.FC = () => {
     }
   }, [audioContext]);
 
-  // Lifecycle Management Loop (Cats & Toys)
+  // Lifecycle Management Loop (Cats)
   useEffect(() => {
     const interval = setInterval(() => {
       const currentTime = Date.now();
@@ -56,27 +62,6 @@ const App: React.FC = () => {
         return age < CAT_LIFESPAN_MS;
       }));
 
-      // Prune Toys
-      setToys(prevToys => prevToys.filter(toy => currentTime < toy.expiresAt));
-
-      // Randomly spawn a toy (10% chance per check if low count)
-      setToys(prevToys => {
-          if (prevToys.length < 2 && Math.random() < 0.05) {
-              const type: ToyType = Math.random() > 0.5 ? 'laser' : 'yarn';
-              const padding = 100;
-              const newToy: ToyData = {
-                  id: uuidv4(),
-                  x: padding + Math.random() * (window.innerWidth - padding * 2),
-                  y: padding + Math.random() * (window.innerHeight - padding * 2),
-                  type,
-                  createdAt: currentTime,
-                  expiresAt: currentTime + (10000 + Math.random() * 10000) // 10-20s duration
-              };
-              return [...prevToys, newToy];
-          }
-          return prevToys;
-      });
-
     }, 100); 
 
     return () => clearInterval(interval);
@@ -85,8 +70,6 @@ const App: React.FC = () => {
   const handleScreenClick = useCallback((e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     initAudio();
 
-    // Prevent spawning if clicking a toy (optional, simplistic check handled by z-index usually)
-    
     // Get coordinates
     let targetX, targetY;
     if ('touches' in e) {
@@ -166,7 +149,6 @@ const App: React.FC = () => {
   const clearCats = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCats([]);
-    setToys([]);
   };
 
   return (
@@ -184,14 +166,6 @@ const App: React.FC = () => {
         @keyframes twinkle {
             0%, 100% { opacity: 0.2; transform: scale(0.8); }
             50% { opacity: 0.8; transform: scale(1.2); }
-        }
-        @keyframes pulseLaser {
-            0%, 100% { transform: scale(1); opacity: 0.8; }
-            50% { transform: scale(1.2); opacity: 1; }
-        }
-        @keyframes spinYarn {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
       `}</style>
 
@@ -226,31 +200,6 @@ const App: React.FC = () => {
         </svg>
       </div>
 
-      {/* Render Toys */}
-      {toys.map(toy => (
-          <div 
-            key={toy.id}
-            className="absolute pointer-events-none transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-500"
-            style={{ 
-                left: toy.x, 
-                top: toy.y, 
-                zIndex: 5 
-            }}
-          >
-              {toy.type === 'laser' && (
-                  <div className="w-4 h-4 rounded-full bg-red-500 shadow-[0_0_15px_4px_rgba(239,68,68,0.8)]" style={{ animation: 'pulseLaser 0.5s infinite' }} />
-              )}
-              {toy.type === 'yarn' && (
-                  <div className="w-8 h-8 rounded-full bg-pink-500 border-2 border-pink-700 shadow-md flex items-center justify-center overflow-hidden">
-                       <svg viewBox="0 0 20 20" className="w-full h-full opacity-50">
-                           <path d="M0,10 Q10,0 20,10 T0,10" stroke="white" strokeWidth="1" fill="none" />
-                           <path d="M10,0 Q20,10 10,20 T10,0" stroke="white" strokeWidth="1" fill="none" />
-                       </svg>
-                  </div>
-              )}
-          </div>
-      ))}
-
       {/* Render Cats */}
       {cats.map((cat) => (
         <Cat 
@@ -258,7 +207,6 @@ const App: React.FC = () => {
             data={cat} 
             audioContext={audioContext}
             onInteract={handleCatInteract}
-            toys={toys}
         />
       ))}
 

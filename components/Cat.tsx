@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { CatData, CatMood, CatBreed, ToyData } from '../types';
+
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { CatData, CatMood, CatBreed } from '../types';
 import { generateCatThought, generateCatSpeech } from '../services/geminiService';
 
 interface CatProps {
   data: CatData;
   audioContext: AudioContext | null;
   onInteract?: (id: string) => void;
-  toys?: ToyData[];
 }
 
-const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) => {
+const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract }) => {
   const [visible, setVisible] = useState(false);
   const [thought, setThought] = useState<string>('');
   const [mood, setMood] = useState<CatMood>(CatMood.PLAYFUL);
@@ -23,24 +23,34 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
   // Interaction state
   const [isInteracting, setIsInteracting] = useState(false);
   const [hearts, setHearts] = useState<{id: number, x: number, y: number}[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false); // Playing with toy
 
   // Lifecycle state
   const [ageScale, setAgeScale] = useState(1);
   const [isOld, setIsOld] = useState(false);
-
-  // Refs for tracking toys in closure
-  const toysRef = useRef(toys);
-  toysRef.current = toys;
   
   // Random animation timings to make each cat unique
-  const isLazy = data.breed === CatBreed.PERSIAN || data.breed === CatBreed.SCOTTISH_FOLD;
-  const isHyper = data.breed === CatBreed.SIAMESE;
+  const isLazy = data.breed === CatBreed.PERSIAN || data.breed === CatBreed.SCOTTISH_FOLD || data.breed === CatBreed.RAGDOLL;
+  const isHyper = data.breed === CatBreed.SIAMESE || data.breed === CatBreed.BENGAL || data.breed === CatBreed.SPHYNX;
 
   const blinkDuration = useRef(3 + Math.random() * 4).current; 
   const breatheDuration = useRef((isLazy ? 3.5 : 2) + Math.random() * 2).current; 
   const twitchDuration = useRef((isHyper ? 2 : 4) + Math.random() * 4).current; 
   const tailDuration = useRef((isHyper ? 1.5 : 3) + Math.random() * 2).current;
+
+  // Visual Variation Traits (Generated once per cat)
+  const traits = useMemo(() => ({
+    earHeight: Math.random() * 8 - 4,   // Taller or shorter ears
+    earWidth: Math.random() * 4 - 2,    // Wider or narrower base
+    eyeSpacing: Math.random() * 5 - 2.5, // Eyes closer or further apart
+    eyeSize: 0.9 + Math.random() * 0.3,  // Smaller or larger eyes
+    faceSquash: 0.95 + Math.random() * 0.1, // Slightly rounder or flatter face
+    whiskerAngle: Math.random() * 20 - 10,
+    stripeConfig: {
+        count: Math.floor(Math.random() * 2) + 2, // 2 or 3 side stripes
+        offset: Math.random() * 5,
+        irregularity: Math.random() * 5
+    }
+  }), []);
 
   // Lifecycle check loop
   useEffect(() => {
@@ -76,71 +86,7 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
     let wanderTimeout: ReturnType<typeof setTimeout>;
 
     const startWandering = () => {
-      // Logic: Check for toys first
-      const currentToys = toysRef.current;
-      let targetToy: ToyData | null = null;
-      let minDist = 300; // Detection radius
-
-      // Find nearest toy relative to CURRENT position (base x/y + offset)
-      const currentX = data.x + offset.x;
-      const currentY = data.y + offset.y;
-
-      for (const toy of currentToys) {
-          const dx = toy.x - currentX;
-          const dy = toy.y - currentY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < minDist) {
-              minDist = dist;
-              targetToy = toy;
-          }
-      }
-
-      if (targetToy) {
-          // Found a toy! Move towards it.
-          // Calculate offset needed to get from base (data.x, data.y) to toy
-          const targetOffsetX = targetToy.x - data.x;
-          const targetOffsetY = targetToy.y - data.y;
-
-          // Distance to target
-          const dx = targetToy.x - currentX;
-          const dy = targetToy.y - currentY;
-          const distToTarget = Math.sqrt(dx * dx + dy * dy);
-
-          // Rotate to face toy
-          const angleRad = Math.atan2(dy, dx);
-          const angleDeg = angleRad * (180 / Math.PI) + 90; // +90 because cat faces up by default? 
-          // Actually SVGs usually 0 deg is right. Let's assume standard rotation.
-          // Based on current SVG, "up" (-y) seems to be the head direction if unrotated, 
-          // but rotation in CSS is usually clockwise. 
-          // Let's just do a simple look-at.
-          
-          setRotationOffset(angleDeg - data.rotation); // Adjust absolute rotation relative to base
-
-          if (distToTarget < 60) {
-              // Reached toy -> Play
-              setIsPlaying(true);
-              setOffset({ x: targetOffsetX + (Math.random() * 20 - 10), y: targetOffsetY + (Math.random() * 20 - 10) });
-              setTransitionDuration('0.5s'); // Quick snap to position
-              
-              // Stay playing for a bit
-              wanderTimeout = setTimeout(() => {
-                  setIsPlaying(false);
-                  startWandering();
-              }, 2000 + Math.random() * 1000);
-              return;
-          } else {
-              // Chase toy
-              setIsPlaying(false);
-              setOffset({ x: targetOffsetX, y: targetOffsetY });
-              setTransitionDuration(`${1 + Math.random() * 0.5}s`); // Move fast
-              
-              wanderTimeout = setTimeout(startWandering, 1200);
-              return;
-          }
-      }
-
-      // No Toy -> Random Wander
-      setIsPlaying(false);
+      // Random Wander
       
       // Switch to slower, smoother movement for wandering
       setTransitionDuration(`${3 + Math.random() * 2}s`); 
@@ -244,48 +190,66 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
 
   const renderTail = () => {
     let tailColor = data.color;
-    if (data.breed === CatBreed.SIAMESE) {
+    let strokeWidth = "8";
+    
+    if (data.breed === CatBreed.SIAMESE || data.breed === CatBreed.RAGDOLL) {
         tailColor = "#3e2723"; // Dark point color
     }
+    if (data.breed === CatBreed.SPHYNX) {
+        strokeWidth = "4"; // Rat tail
+    }
+    if (data.breed === CatBreed.RAGDOLL || data.breed === CatBreed.PERSIAN) {
+        strokeWidth = "12"; // Fluffy tail
+    }
+
     return (
         <g style={{
             animation: `tailWiggle ${tailDuration}s ease-in-out infinite alternate`,
             transformOrigin: '40px 80px'
         }}>
-            <path d="M 40 80 Q 10 80 10 40" stroke={tailColor} strokeWidth="8" strokeLinecap="round" fill="none" />
+            <path d="M 40 80 Q 10 80 10 40" stroke={tailColor} strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
         </g>
     );
   };
 
   const renderEars = () => {
+    // Dynamic points based on visual traits
+    let { earHeight: eh, earWidth: ew } = traits;
+
+    if (data.breed === CatBreed.SPHYNX) {
+        eh += 6; // Big ears
+        ew += 3;
+    }
+
     switch (data.breed) {
         case CatBreed.SCOTTISH_FOLD:
             return (
                 <g style={{ animation: `twitch ${twitchDuration}s ease-in-out infinite`, transformOrigin: '50px 50px' }}>
-                    <path d="M25 35 L20 42 L35 40 Z" fill={data.color} stroke="rgba(0,0,0,0.1)" strokeWidth="1"/>
-                    <path d="M75 35 L80 42 L65 40 Z" fill={data.color} stroke="rgba(0,0,0,0.1)" strokeWidth="1"/>
+                    <path d={`M25 35 L${20+ew} ${42+eh} L35 40 Z`} fill={data.color} stroke="rgba(0,0,0,0.1)" strokeWidth="1"/>
+                    <path d={`M75 35 L${80-ew} ${42+eh} L65 40 Z`} fill={data.color} stroke="rgba(0,0,0,0.1)" strokeWidth="1"/>
                   </g>
             );
         case CatBreed.SIAMESE:
+        case CatBreed.RAGDOLL:
             const pointColor = "#3e2723"; 
             return (
                 <g style={{ animation: `twitch ${twitchDuration}s ease-in-out infinite`, transformOrigin: '50px 50px' }}>
-                    <path d="M15 35 L12 5 L40 25 Z" fill={pointColor} />
-                    <path d="M85 35 L88 5 L60 25 Z" fill={pointColor} />
+                    <path d={`M${15-ew} 35 L${12-ew/2} ${5-eh} L40 25 Z`} fill={pointColor} />
+                    <path d={`M${85+ew} 35 L${88+ew/2} ${5-eh} L60 25 Z`} fill={pointColor} />
                   </g>
             );
         case CatBreed.PERSIAN:
              return (
                 <g style={{ animation: `twitch ${twitchDuration}s ease-in-out infinite`, transformOrigin: '50px 50px' }}>
-                    <path d="M20 35 L18 20 L35 28 Z" fill={data.color} />
-                    <path d="M80 35 L82 20 L65 28 Z" fill={data.color} />
+                    <path d={`M20 35 L${18-ew} ${20-eh} L35 28 Z`} fill={data.color} />
+                    <path d={`M80 35 L${82+ew} ${20-eh} L65 28 Z`} fill={data.color} />
                   </g>
             );
         default:
             return (
                 <g style={{ animation: `twitch ${twitchDuration}s ease-in-out infinite`, transformOrigin: '50px 50px' }}>
-                    <path d="M20 30 L20 10 L40 20 Z" fill={data.color} />
-                    <path d="M80 30 L80 10 L60 20 Z" fill={data.color} />
+                    <path d={`M${20-ew} 30 L${20-ew} ${10-eh} L40 20 Z`} fill={data.color} />
+                    <path d={`M${80+ew} 30 L${80+ew} ${10-eh} L60 20 Z`} fill={data.color} />
                   </g>
             );
     }
@@ -294,37 +258,71 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
   const renderBodyAndHead = () => {
     const isSiamese = data.breed === CatBreed.SIAMESE;
     const isPersian = data.breed === CatBreed.PERSIAN;
+    const isRagdoll = data.breed === CatBreed.RAGDOLL;
+    const isBengal = data.breed === CatBreed.BENGAL;
+    const isSphynx = data.breed === CatBreed.SPHYNX;
     
-    const faceMask = isSiamese ? (
-        <circle cx="50" cy="50" r="20" fill="#3e2723" fillOpacity="0.8" style={{ filter: 'blur(4px)' }} />
-    ) : null;
+    let faceMask = null;
+    if (isSiamese || isRagdoll) {
+        faceMask = (
+            <circle cx="50" cy="50" r={isRagdoll ? 22 : 20} fill="#3e2723" fillOpacity={isRagdoll ? "0.6" : "0.8"} style={{ filter: 'blur(4px)' }} />
+        );
+    }
 
-    const stripes = data.breed === CatBreed.TABBY ? (
-        <g stroke="rgba(0,0,0,0.3)" strokeWidth="2" strokeLinecap="round">
-            <path d="M40 30 L45 38 L50 30 L55 38 L60 30" fill="none" /> 
-            <path d="M20 50 L30 50" />
-            <path d="M80 50 L70 50" />
-        </g>
-    ) : null;
+    let coatPattern = null;
+    if (data.breed === CatBreed.TABBY) {
+        const { count, offset, irregularity } = traits.stripeConfig;
+        const stripePaths = [];
+        // Forehead 'M'
+        stripePaths.push(
+            <path key="m-mark" d={`M40 30 L45 ${38+irregularity} L50 30 L55 ${38-irregularity} L60 30`} fill="none" />
+        );
+        // Side stripes
+        for(let i=0; i<count; i++) {
+             stripePaths.push(<path key={`l-${i}`} d={`M${20+i*2} ${50-i*4+offset} L${30+i} 50`} />);
+             stripePaths.push(<path key={`r-${i}`} d={`M${80-i*2} ${50-i*4+offset} L${70-i} 50`} />);
+        }
+        coatPattern = (
+            <g stroke="rgba(0,0,0,0.3)" strokeWidth="2" strokeLinecap="round">{stripePaths}</g>
+        );
+    } else if (isBengal) {
+        const spots = [];
+        // Generate random spots
+        for(let i=0; i<5; i++) {
+            spots.push(<ellipse key={`b-${i}`} cx={25 + i*12} cy={55 + (i%2)*5} rx={3} ry={2} transform={`rotate(${Math.random()*180})`} fill="#78350f" fillOpacity="0.6"/>);
+            spots.push(<ellipse key={`b2-${i}`} cx={30 + i*10} cy={30 + (i%2)*5} rx={2} ry={2} transform={`rotate(${Math.random()*180})`} fill="#78350f" fillOpacity="0.4"/>);
+        }
+        coatPattern = <g>{spots}</g>;
+    } else if (isSphynx) {
+        // Wrinkles
+        coatPattern = (
+            <g stroke="rgba(0,0,0,0.15)" strokeWidth="1" fill="none">
+                <path d="M40 25 Q50 30 60 25" />
+                <path d="M35 30 Q50 35 65 30" />
+                <path d="M25 50 Q30 55 25 60" />
+                <path d="M75 50 Q70 55 75 60" />
+            </g>
+        );
+    }
 
     return (
         <>
-           {isPersian ? (
-               <ellipse cx="50" cy="55" rx="40" ry="35" fill={data.color} />
+           {isPersian || isRagdoll ? (
+               <ellipse cx="50" cy="55" rx={40 * traits.faceSquash} ry="35" fill={data.color} />
            ) : (
-               <circle cx="50" cy="50" r="35" fill={data.color} />
+               <circle cx="50" cy="50" r="35" fill={data.color} transform={`scale(${traits.faceSquash}, 1)`} transform-origin="50 50" />
            )}
            {faceMask}
-           {stripes}
+           {coatPattern}
         </>
     );
   };
   
   let eyeColor = "white";
   let pupilColor = "black";
-  if (data.breed === CatBreed.SIAMESE) { eyeColor = "#60a5fa"; } 
+  if (data.breed === CatBreed.SIAMESE || data.breed === CatBreed.RAGDOLL) { eyeColor = "#60a5fa"; } 
   if (data.breed === CatBreed.BLACK) { eyeColor = "#fbbf24"; } 
-  if (data.breed === CatBreed.SCOTTISH_FOLD) { eyeColor = "#f59e0b"; }
+  if (data.breed === CatBreed.SCOTTISH_FOLD || data.breed === CatBreed.BENGAL) { eyeColor = "#f59e0b"; }
 
   // Use ageScale to fade/shrink at end of life
   const currentScale = visible 
@@ -332,6 +330,12 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
     : 0;
   
   const currentOpacity = ageScale; // Fade out
+
+  // Eye Positions
+  const leftEyeCx = 38 - traits.eyeSpacing;
+  const rightEyeCx = 62 + traits.eyeSpacing;
+  const eyeRadius = 5 * traits.eyeSize;
+  const pupilRadius = 2 * traits.eyeSize;
 
   return (
     <div
@@ -375,12 +379,6 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
         @keyframes floatHeart {
             0% { opacity: 1; transform: translateY(0) scale(0.5); }
             100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
-        }
-        @keyframes batPaw {
-            0%, 100% { transform: translate(0,0) rotate(0deg); }
-            25% { transform: translate(5px, -5px) rotate(15deg); }
-            50% { transform: translate(-2px, 0) rotate(-5deg); }
-            75% { transform: translate(5px, -5px) rotate(10deg); }
         }
       `}</style>
 
@@ -433,15 +431,15 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
                animation: `blink ${blinkDuration}s infinite`,
                transformOrigin: '50px 45px'
              }}>
-               <circle cx="38" cy="45" r="5" fill={eyeColor} />
-               <circle cx="38" cy="45" r="2" fill={pupilColor} />
-               <circle cx="62" cy="45" r="5" fill={eyeColor} />
-               <circle cx="62" cy="45" r="2" fill={pupilColor} />
+               <circle cx={leftEyeCx} cy="45" r={eyeRadius} fill={eyeColor} />
+               <circle cx={leftEyeCx} cy="45" r={pupilRadius} fill={pupilColor} />
+               <circle cx={rightEyeCx} cy="45" r={eyeRadius} fill={eyeColor} />
+               <circle cx={rightEyeCx} cy="45" r={pupilRadius} fill={pupilColor} />
              </g>
           ) : (
             <g>
-              <path d="M33 45 Q38 48 43 45" stroke="black" strokeWidth="2" fill="none" />
-              <path d="M57 45 Q62 48 67 45" stroke="black" strokeWidth="2" fill="none" />
+              <path d={`M${leftEyeCx-5} 45 Q${leftEyeCx} 48 ${leftEyeCx+5} 45`} stroke="black" strokeWidth="2" fill="none" />
+              <path d={`M${rightEyeCx-5} 45 Q${rightEyeCx} 48 ${rightEyeCx+5} 45`} stroke="black" strokeWidth="2" fill="none" />
             </g>
           )}
 
@@ -455,18 +453,13 @@ const Cat: React.FC<CatProps> = ({ data, audioContext, onInteract, toys = [] }) 
           <g style={{ 
              animation: `twitch ${twitchDuration * 0.7}s ease-in-out infinite`,
              transformOrigin: '50px 55px',
-             animationDelay: '1s'
+             animationDelay: '1s',
+             transform: `rotate(${traits.whiskerAngle}deg)`
           }}>
             <line x1="20" y1="50" x2="35" y2="52" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
             <line x1="20" y1="55" x2="35" y2="55" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
             <line x1="80" y1="50" x2="65" y2="52" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
             <line x1="80" y1="55" x2="65" y2="55" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
-          </g>
-
-          {/* Paws (Play Animation) */}
-          <g style={{ opacity: isPlaying ? 1 : 0, transition: 'opacity 0.2s' }}>
-              <circle cx="35" cy="80" r="8" fill={data.color} style={{ animation: isPlaying ? 'batPaw 0.4s infinite alternate' : 'none' }} />
-              <circle cx="65" cy="80" r="8" fill={data.color} style={{ animation: isPlaying ? 'batPaw 0.4s infinite alternate-reverse' : 'none' }} />
           </g>
 
         </g>

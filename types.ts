@@ -1,3 +1,4 @@
+
 export interface CatData {
   id: string;
   x: number;
@@ -17,7 +18,10 @@ export enum CatBreed {
   SIAMESE = 'Siamese',
   PERSIAN = 'Persian',
   SCOTTISH_FOLD = 'Scottish Fold',
-  BLACK = 'Black Cat'
+  BLACK = 'Black Cat',
+  SPHYNX = 'Sphynx',
+  RAGDOLL = 'Ragdoll',
+  BENGAL = 'Bengal'
 }
 
 export enum CatMood {
@@ -27,15 +31,4 @@ export enum CatMood {
   PLAYFUL = 'Playful',
   PHILOSOPHICAL = 'Philosophical',
   SLEEPY = 'Sleepy'
-}
-
-export type ToyType = 'laser' | 'yarn';
-
-export interface ToyData {
-  id: string;
-  x: number;
-  y: number;
-  type: ToyType;
-  createdAt: number;
-  expiresAt: number;
 }
