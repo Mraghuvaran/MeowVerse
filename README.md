@@ -1,11 +1,24 @@
-<div align="center">
+# MeowVerse
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+MeowVerse is an interactive, browser-based application where you can summon unique cats by clicking anywhere on the screen.
 
-  <h1>Built with AI Studio</h2>
+## Features
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+- **Procedural Cats**: Each cat is unique, with different breeds (Siamese, Persian, Tabby, etc.), colors, sizes, and random wandering behaviors.
+- **Synthesized Audio**: Uses the Web Audio API to generate unique "meows" and "purrs" in real-time based on the cat's breed and mood. No external sound files required!
+- **Interactive**: Click on existing cats to pet them. They will react with sounds and animations.
+- **Offline Capable**: The app runs entirely client-side using React and native browser APIs. No external AI APIs are required.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## Tech Stack
 
-</div>
+- **React 19**: UI rendering.
+- **TypeScript**: Type safety.
+- **Tailwind CSS**: Styling.
+- **Web Audio API**: Procedural sound generation (Oscillators, Filters, Envelopes).
+- **SVG**: Vector-based cat rendering.
+
+## How to Run
+
+1. Open `index.html` in a modern web browser.
+2. Click anywhere to start the audio context and summon your first cat.
+3. Enjoy the meows!

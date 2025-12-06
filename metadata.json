@@ -1,0 +1,5 @@
+{
+  "name": "MeowVerse",
+  "description": "An interactive cat soundscape where clicking summons unique cats with AI-generated thoughts and voices.",
+  "requestFramePermissions": []
+}
